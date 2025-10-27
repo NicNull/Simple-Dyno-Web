@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>A.R.T. Race Tuning | Data Upload</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 40px auto; padding: 0 20px; background-color: #f4f4f4; }
+        h1 { color: #2c3e50; text-align: center; }
+        .container { background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .upload-form { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+        .file-input { border: 2px dashed #0087F7; border-radius: 5px; padding: 25px; text-align: center; cursor: pointer; width: 100%; box-sizing: border-box; }
+        .file-input:hover { border-color: #0056b3; }
+        .file-input-label { color: #0087F7; font-weight: bold; }
+        input[type="file"] { display: none; }
+        .submit-btn { background-color: #0087F7; color: white; padding: 12px 25px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        .submit-btn:hover { background-color: #0056b3; }
+        .flash-message { padding: 15px; margin-bottom: 20px; border-radius: 4px; color: #a94442; background-color: #f2dede; }
+        .meta-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; margin-bottom: 10px; }
+        .meta-fields input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>A.R.T. Dyno Data Uploader</h1>
+        
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}{% for message in messages %}<div class="flash-message">{{ message }}</div>{% endfor %}{% endif %}
+        {% endwith %}
+
+        <form method="post" action="/upload" enctype="multipart/form-data" class="upload-form">
+            <!-- New Metadata Fields -->
+            <div class="meta-fields">
+                <input type="text" name="customer_name" placeholder="Customer Name" required>
+                <input type="text" name="engine_type" placeholder="Engine Type / ID" required>
+            </div>
+
+            <label for="main_file" class="file-input">
+                <span class="file-input-label">Choose Main Run (.sdp)</span>
+            </label>
+            <input type="file" name="main_file" id="main_file" required accept=".sdp">
+            
+            <label for="comparison_file" class="file-input" style="border-color: #6c757d; border-style: dotted;">
+                <span class="file-input-label" style="color: #6c757d;">Choose Comparison Run (Optional)</span>
+            </label>
+            <input type="file" name="comparison_file" id="comparison_file" accept=".sdp">
+            
+            <input type="submit" value="Upload and Analyze" class="submit-btn">
+        </form>
+    </div>
+</body>
+</html>

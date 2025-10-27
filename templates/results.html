@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>A.R.T. Dyno Test Results</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* --- MODIFIED: Zero margins for PDF --- */
+        @page {
+            size: A4 landscape;
+            margin: 0.0cm;
+        }
+
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #3a3a3a; font-size: 9pt; line-height: 1.3; background-color: #f0f2f5; margin: 0; }
+        .actions-container { max-width: 1120px; margin: 0 auto; padding: 15px; text-align: center; }
+        .report-wrapper { max-width: 1120px; margin: 0 auto 20px auto; background-color: #fff; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        
+        /* Using padding to simulate margins inside the zero-margin page */
+        .page { padding: 1.5cm; }
+        
+        /* This reliably forces a page break AFTER the summary page */
+        .summary-page { page-break-after: always; }
+
+        .header { display: flex; justify-content: space-between; align-items: center; }
+        .logo { max-width: 100px; }
+        .report-title h1 { margin: 0; font-size: 22pt; font-weight: 600; color: #2c3e50; text-align: right; }
+        .report-title p { margin: 4px 0 0 0; font-size: 10pt; color: #666; text-align: right; }
+        .meta-info { border-top: 1px solid #e0e0e0; border-bottom: 1px solid #e0e0e0; padding: 8px 5px; margin: 15px 0; display: flex; justify-content: space-between; font-size: 10pt; }
+        h2 { font-size: 14pt; font-weight: 600; color: #333; margin: 15px 0 10px 0; }
+        .main-container { display: flex; align-items: flex-start; gap: 20px; width: 100%; }
+        .left-column { flex: 0 0 65%; min-width: 0; }
+        .right-column { flex: 0 0 35%; min-width: 0; }
+        
+        /* --- MODIFIED: Taller chart container for web view --- */
+        .chart-container { position: relative; width: 100%; height: 450px; }
+        .chart-img { width: 100%; height: 450px; object-fit: contain; border: 1px solid #e0e0e0; }
+        
+        .info-footer { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e0e0e0; }
+        .info-card { text-align: center; }
+        .info-card h4 { margin: 0 0 4px 0; font-size: 8pt; color: #007bff; font-weight: 600; }
+        .info-card p { margin: 0; line-height: 1.2; }
+        .info-card .main-value { font-size: 1.2em; font-weight: bold; color: #2c3e50; }
+        .info-card .main-value .details { font-size: 0.8em; font-weight: normal; color: #666; }
+        .info-card .comp-value { font-size: 0.9em; color: #555; }
+        
+        /* --- MODIFIED: Centered table text --- */
+        .data-table { width: 100%; border-collapse: collapse; font-size: 8pt; }
+        .data-table th, .data-table td { border: 1px solid #ddd; padding: 4px 6px; text-align: center; }
+        .data-table th { background-color: #f2f2f2; font-weight: 600; }
+        
+        .button { color: #fff; background-color: #007bff; text-decoration: none; padding: 10px 20px; border-radius: 5px; border: none; font-size: 1em; cursor: pointer; margin: 0 5px; }
+
+        @media print {
+            body { background-color: #fff; }
+            .actions-container { display: none; }
+            .report-wrapper { box-shadow: none; margin: 0; max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="actions-container">
+        <a href="/" class="button" style="background-color: #6c757d;">Parse New Run</a>
+        <button id="exportPdfBtn" class="button">Export to PDF</button>
+    </div>
+
+    <div class="report-wrapper">
+        <!-- ======================= PAGE 1: SUMMARY ======================= -->
+        <div class="page summary-page">
+            <div class="header">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="logo">
+                <div class="report-title">
+                    <h1>A.R.T. Dyno Test Results</h1>
+                    <p>Main: {{ main_run.filename }}{% if comparison_run %} | Comp: {{ comparison_run.filename }}{% endif %}</p>
+                </div>
+            </div>
+            <div class="meta-info">
+                <span><strong>Customer:</strong> {{ meta.customer_name }}</span>
+                <span><strong>Engine:</strong> {{ meta.engine_type }}</span>
+                <span><strong>Date:</strong> {{ meta.test_date.split(' ')[0] }}</span>
+            </div>
+            <div class="main-container">
+                <div class="left-column">
+                    <h2>Performance Graph</h2>
+                    {% if is_pdf_export %}
+                        <img src="{{ chart_image }}" alt="Performance Chart" class="chart-img">
+                    {% else %}
+                        <div class="chart-container"><canvas id="performanceChart"></canvas></div>
+                    {% endif %}
+                </div>
+                <div class="right-column">
+                    <h2>Summary Data (Main Run)</h2>
+                    <table class="data-table">
+                        <thead><tr><th>RPM</th><th>Torque (N·m)</th><th>Power (HP)</th></tr></thead>
+                        <tbody>
+                            {% for row in main_run.aggregated_data %}
+                            <tr><td>{{ row.rpm }}</td><td>{{ row.torque }}</td><td>{{ row.hp }}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="info-footer">
+                <div class="info-card">
+                    <h4>Peak Power</h4>
+                    <p class="main-value">{{ main_run.peak_power.hp }} HP <span class="details">@ {{ main_run.peak_power.rpm }} RPM</span></p>
+                    {% if comparison_run %}<p class="comp-value">({{ comparison_run.peak_power.hp }} HP)</p>{% endif %}
+                </div>
+                <div class="info-card">
+                    <h4>Peak Torque</h4>
+                    <p class="main-value">{{ main_run.peak_torque.torque }} N·m <span class="details">@ {{ main_run.peak_torque.rpm }} RPM</span></p>
+                    {% if comparison_run %}<p class="comp-value">({{ comparison_run.peak_torque.torque }} N·m)</p>{% endif %}
+                </div>
+                <div class="info-card">
+                    <h4>Data Points</h4>
+                    <p class="main-value">{{ main_run.data_points_count }}</p>
+                    {% if comparison_run %}<p class="comp-value">({{ comparison_run.data_points_count }} Points)</p>{% endif %}
+                </div>
+                <div class="info-card">
+                    <h4>Test Config (Main)</h4>
+                    <dl style="font-size: 7pt; margin:0; display: grid; grid-template-columns: auto 1fr; gap: 0 8px; text-align: left; align-items: center;">
+                        <dt>Gear Ratio:</dt><dd>{{ main_run.config.Gear_Ratio or 'N/A' }}</dd>
+                        <dt>Roller Ø:</dt><dd>{{ main_run.config.Roller_Diameter or 'N/A' }}</dd>
+                        <dt>Roller Mass:</dt><dd>{{ main_run.config.Roller_Mass or 'N/A' }}</dd>
+                        <dt>Actual MOI:</dt><dd>{{ main_run.config.Actual_MOI or 'N/A' }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================= PAGE 2: APPENDIX ======================= -->
+        <div class="page appendix-page">
+            <h1>Appendix A: Full Test Data</h1>
+            <h2>Main Run: {{ main_run.filename }}</h2>
+            <table class="data-table">
+                <thead><tr><th>RPM</th><th>Torque (N·m)</th><th>Power (HP)</th></tr></thead>
+                <tbody>
+                    {% for row in main_run.raw_data %}
+                    <tr><td>{{ row.rpm }}</td><td>{{ row.torque }}</td><td>{{ row.hp }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% if comparison_run %}
+            <h2 style="margin-top: 25px;">Comparison Run: {{ comparison_run.filename }}</h2>
+            <table class="data-table">
+                <thead><tr><th>RPM</th><th>Torque (N·m)</th><th>Power (HP)</th></tr></thead>
+                <tbody>
+                    {% for row in comparison_run.raw_data %}
+                    <tr><td>{{ row.rpm }}</td><td>{{ row.torque }}</td><td>{{ row.hp }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        if (!{{ is_pdf_export|default(false)|tojson }} ) {
+            const mainRun = {{ main_run|tojson }};
+            const comparisonRun = {{ comparison_run|tojson|default('null') }};
+            const datasets = [
+                { label: `Torque (${mainRun.filename})`, data: mainRun.torque_data, borderColor: 'rgba(0, 123, 255, 1)', borderWidth: 2.5, pointStyle: 'circle', radius: 3, yAxisID: 'y-axis-common' },
+                { label: `Power (${mainRun.filename})`, data: mainRun.hp_data, borderColor: 'rgba(220, 53, 69, 1)', borderWidth: 2.5, pointStyle: 'circle', radius: 3, yAxisID: 'y-axis-common' }
+            ];
+            if (comparisonRun) {
+                datasets.push({ label: `Torque (${comparisonRun.filename})`, data: comparisonRun.torque_data, borderColor: 'rgba(0, 123, 255, 0.4)', borderWidth: 2, borderDash: [5, 5], pointStyle: 'cross', radius: 4, yAxisID: 'y-axis-common' });
+                datasets.push({ label: `Power (${comparisonRun.filename})`, data: comparisonRun.hp_data, borderColor: 'rgba(220, 53, 69, 0.4)', borderWidth: 2, borderDash: [5, 5], pointStyle: 'cross', radius: 4, yAxisID: 'y-axis-common' });
+            }
+            const performanceChart = new Chart(document.getElementById('performanceChart').getContext('2d'), {
+                type: 'line', data: { datasets: datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: { type: 'linear', title: { display: true, text: 'Motor RPM' } },
+                        'y-axis-common': { type: 'linear', position: 'left', min: 0, title: { display: true, text: 'Torque (N·m) / Power (HP)' } }
+                    },
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+            document.getElementById('exportPdfBtn').addEventListener('click', () => {
+                const chartImage = performanceChart.toBase64Image();
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = "{{ url_for('export_pdf') }}";
+                const hiddenInput = document.createElement('input');
+                hiddenInput.type = 'hidden';
+                hiddenInput.name = 'chartImage';
+                hiddenInput.value = chartImage;
+                form.appendChild(hiddenInput);
+                document.body.appendChild(form);
+                form.submit();
+                document.body.removeChild(form);
+            });
+        }
+    </script>
+</body>
+</html>
